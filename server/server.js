@@ -187,6 +187,40 @@ app.delete('/users/:id', (req, res) => {
     res.json({ message: 'User deleted' });
   });
 });
+// Signup API
+app.post('/signup', upload.single('avatar'), async (req, res) => {
+  const { fname, lname, username, password, role } = req.body;
+  const avatar = req.file?.filename || null;
+
+  if (!fname || !lname || !username || !password || !role) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    // เช็คว่ามี username ซ้ำไหม
+    con.query('SELECT * FROM users WHERE username = ?', [username], async (err, results) => {
+      if (err) {
+        return res.status(500).json({ message: 'Database error', error: err });
+      }
+      if (results.length > 0) {
+        return res.status(409).json({ message: 'Username already exists' });
+      }
+      
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const sql = `INSERT INTO users (fname, lname, username, password, avatar, role)
+                   VALUES (?, ?, ?, ?, ?, ?)`;
+
+      con.query(sql, [fname, lname, username, hashedPassword, avatar, role], (err, result) => {
+        if (err) {
+          return res.status(500).json({ message: 'Database error', error: err });
+        }
+        res.status(201).json({ message: 'Signup successful' });
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 
 app.listen(port, () => {
